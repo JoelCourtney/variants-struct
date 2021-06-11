@@ -1,0 +1,16 @@
+[package]
+name = "variants-struct"
+version = "0.1.0"
+authors = ["Joel Courtney <joel.e.courtney@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+syn = { version = "*", features = ["full"] }
+proc-macro2 = "*"
+quote = "*"
+Inflector = { version="*", default-features=false }
+
+[lib]
+proc-macro = true
