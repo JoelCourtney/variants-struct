@@ -11,6 +11,11 @@ syn = { version = "*", features = ["full"] }
 proc-macro2 = "*"
 quote = "*"
 Inflector = { version="*", default-features=false }
+proc-macro-error = "*"
+
+[dev-dependencies]
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
 
 [lib]
 proc-macro = true
