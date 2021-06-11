@@ -19,3 +19,4 @@ serde_json = "*"
 
 [lib]
 proc-macro = true
+path = "src/lib.rs"

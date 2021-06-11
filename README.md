@@ -1,4 +1,4 @@
-# Variants Struct
+# variants-struct
 
 A derive macro to convert enums into a struct where the variants are members.
 Effectively, its like using a `HashMap<MyEnum, MyData>`, but it generates a hard-coded struct instead
@@ -68,9 +68,9 @@ The members can be accessed either directly (like `hello.world`) or by using the
 
 ```rust
 fn main() {
-    let hello = HelloStruct::new(2, 3);
+    let mut hello = HelloStruct::new(2, 3);
     *hello.get_mut_unchecked(&Hello::World) = 5;
-    
+
     assert_eq!(hello.world, 5);
     assert_eq!(hello.world, *hello.get_unchecked(&Hello::World));
 }
@@ -145,6 +145,7 @@ would produce the following code:
 
 ```rust
 struct HelloStruct<T: Clone> {
+    # go_away: T,
     // fields omitted
 }
 
@@ -169,7 +170,7 @@ enum Hello {
 }
 ```
 
-These three attributes can be used in either order, or even multiple times (although that wouldn't be very readable).
+These three attributes can be used in any order, or even multiple times (although that wouldn't be very readable).
 
 ## Tuple Variants
 
@@ -205,7 +206,7 @@ impl<T> HelloStruct<T> {
     pub fn get_unchecked(&self, var: &Hello) -> &T {
         match var {
             &Hello::World => &self.world,
-            &Hello::There(key) => &self.there.get(key)
+            &Hello::There(key) => self.there.get(&key)
                 .expect("tuple variant key not found in hashmap")
         }
     }
@@ -213,7 +214,7 @@ impl<T> HelloStruct<T> {
     pub fn get_mut_unchecked(&mut self, var: &Hello) -> &mut T {
         match var {
             &Hello::World => &mut self.world,
-            &Hello::There(key) => &self.there.get_mut(key)
+            &Hello::There(key) => self.there.get_mut(&key)
                 .expect("tuple variant key not found in hashmap")
         }
     }
@@ -221,14 +222,14 @@ impl<T> HelloStruct<T> {
     pub fn get(&self, var: &Hello) -> Option<&T> {
         match var {
             &Hello::World => Some(&self.world),
-            &Hello::There(key) => &self.there.get(key)
+            &Hello::There(key) => self.there.get(&key)
         }
     }
 
     pub fn get_mut(&mut self, var: &Hello) -> Option<&mut T> {
         match var {
             &Hello::World => Some(&mut self.world),
-            &Hello::There(key) => &self.there.get_mut(key)
+            &Hello::There(key) => self.there.get_mut(&key)
         }
     }
 }

@@ -12,6 +12,7 @@ pub enum Hello {
 enum HasTuples {
     Zero,
     One(&'static str),
+    OtherOne(i32)
 }
 
 pub struct NotClonable;
@@ -42,6 +43,9 @@ fn tuple_variant() {
     assert_eq!(*tuple_boi.get_unchecked(&HasTuples::One("hello there")), 2);
     assert_eq!(tuple_boi.one.get("hello there"), Some(&2));
     assert_eq!(tuple_boi.one.get("asdf"), None);
+
+    tuple_boi.other_one.insert(7, 70);
+    assert_eq!(*tuple_boi.get_unchecked(&HasTuples::OtherOne(7)), 70);
 }
 
 #[test]
