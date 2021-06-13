@@ -75,13 +75,11 @@
 //! #     World,
 //! #     There
 //! # }
-//! fn main() {
-//!     let mut hello = HelloStruct::new(2, 3);
-//!     *hello.get_mut_unchecked(&Hello::World) = 5;
+//! let mut hello = HelloStruct::new(2, 3);
+//! *hello.get_mut_unchecked(&Hello::World) = 5;
 //!
-//!     assert_eq!(hello.world, 5);
-//!     assert_eq!(hello.world, *hello.get_unchecked(&Hello::World));
-//! }
+//! assert_eq!(hello.world, 5);
+//! assert_eq!(hello.world, *hello.get_unchecked(&Hello::World));
 //! ```
 //!
 //! The getters can be particularly useful with the [enum-iterator](https://docs.rs/crate/enum-iterator/) crate. For basic enums,
@@ -259,7 +257,7 @@ use proc_macro::TokenStream;
 use syn::{Ident, parse_macro_input, ItemEnum, Fields};
 use quote::{quote, format_ident};
 use inflector::Inflector;
-use proc_macro_error::{proc_macro_error, emit_error};
+use proc_macro_error::{proc_macro_error, emit_error, abort};
 
 /// Stores basic information about variants.
 struct VariantInfo {
@@ -270,7 +268,7 @@ struct VariantInfo {
 
 /// Derives the variants struct and impl.
 #[proc_macro_error]
-#[proc_macro_derive(VariantsStruct, attributes(struct_bounds, struct_derive, struct_name))]
+#[proc_macro_derive(VariantsStruct, attributes(struct_bounds, struct_derive, struct_name, field_name))]
 pub fn variants_struct(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemEnum);
     let enum_ident = input.ident.clone();
@@ -309,6 +307,8 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
                     if attr_name == "struct_name" {
                         if let syn::Lit::Str(lit_str) = lit {
                             struct_ident = format_ident!("{}", lit_str.value());
+                        } else {
+                            emit_error!(lit, "must be a str literal");
                         }
                     }
                 }
@@ -325,10 +325,45 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
     }
 
     let vars: Vec<_> = input.clone().variants.iter().map(
-        |var| VariantInfo {
-            normal: var.ident.clone(),
-            snake: format_ident!("{}", var.ident.to_string().to_snake_case()),
-            fields: var.fields.clone()
+        |var| {
+            let snake = {
+                let names: Vec<_> = var.attrs.iter().filter_map(
+                    |attr| {
+                        match attr.parse_meta() {
+                            Ok(syn::Meta::NameValue(syn::MetaNameValue {path, lit, ..})) => {
+                                if let Some(ident) = path.get_ident() {
+                                    if ident.to_string() == "field_name" {
+                                        if let syn::Lit::Str(lit_str) = lit {
+                                            Some(lit_str.value())
+                                        } else {
+                                            abort!(lit, "must be a string literal");
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => None
+                        }
+                    }
+                ).collect();
+                if names.is_empty() {
+                    let name = var.ident.to_string().to_snake_case();
+                    match syn::parse_str::<syn::Ident>(&name) {
+                        Ok(ident) => ident,
+                        Err(_) => format_ident!("r#{}", name)
+                    }
+                } else {
+                    format_ident!("{}", names.first().unwrap())
+                }
+            };
+            VariantInfo {
+                normal: var.ident.clone(),
+                snake,
+                fields: var.fields.clone()
+            }
         }
     ).collect();
 
@@ -377,10 +412,35 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
                     });
                     new_fields.push(quote! {#snake: std::collections::HashMap::new()});
                 } else {
-                    emit_error!(unnamed, "only tuple variants with exactly one value are allowed");
+                    emit_error!(unnamed, "only tuples with one value are allowed");
                 }
             }
-            _ => {}
+            Fields::Named(syn::FieldsNamed { named, .. }) => {
+                if named.len() == 1 {
+                    let ty = named.first().unwrap().clone().ty;
+                    let ident = named.first().unwrap().ident.clone().unwrap();
+                    struct_fields.push(quote! {
+                        pub #snake: std::collections::HashMap<#ty, T>
+                    });
+                    gets.push(quote! {
+                        &#enum_ident::#normal {#ident}  => self.#snake.get(&#ident)
+                    });
+                    get_muts.push(quote! {
+                        &#enum_ident::#normal {#ident}  => self.#snake.get_mut(&#ident)
+                    });
+                    get_uncheckeds.push(quote! {
+                        &#enum_ident::#normal {#ident} => self.#snake.get(&#ident)
+                            .expect("tuple variant key not found in hashmap")
+                    });
+                    get_mut_uncheckeds.push(quote! {
+                        &#enum_ident::#normal {#ident} => self.#snake.get_mut(&#ident)
+                            .expect("tuple variant key not found in hashmap")
+                    });
+                    new_fields.push(quote! {#snake: std::collections::HashMap::new()});
+                } else {
+                    emit_error!(named, "only structs with one field are allowed");
+                }
+            }
         }
     }
 

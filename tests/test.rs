@@ -12,7 +12,10 @@ pub enum Hello {
 enum HasTuples {
     Zero,
     One(&'static str),
-    OtherOne(i32)
+    OtherOne(i32),
+    StructVariant {
+        my_field: i32
+    }
 }
 
 pub struct NotClonable;
@@ -37,7 +40,7 @@ fn modify() {
 }
 
 #[test]
-fn tuple_variant() {
+fn hashmaps() {
     let mut tuple_boi = HasTuplesStruct::new(3);
     tuple_boi.one.insert("hello there", 2);
     assert_eq!(*tuple_boi.get_unchecked(&HasTuples::One("hello there")), 2);
@@ -46,6 +49,9 @@ fn tuple_variant() {
 
     tuple_boi.other_one.insert(7, 70);
     assert_eq!(*tuple_boi.get_unchecked(&HasTuples::OtherOne(7)), 70);
+
+    tuple_boi.struct_variant.insert(8, 80);
+    assert_eq!(*tuple_boi.get_unchecked(&HasTuples::StructVariant {my_field: 8}), 80);
 }
 
 #[test]
@@ -69,19 +75,27 @@ fn bounds_and_derive() {
     // let fail = HelloStruct::new(NotClonable, NotClonable);
 }
 
+// Renaming
+
 #[derive(VariantsStruct)]
 #[struct_name = "SomeOtherName"]
+#[allow(dead_code)]
 enum NotThisName {
-    Hi
+    Struct,
+    Fn,
+    #[field_name = "this_instead"] NotThis
 }
 
 #[test]
 fn renaming() {
     let hello = SomeOtherName {
-        hi: 5
+        r#struct: 5,
+        r#fn: 3,
+        this_instead: 1
     };
-    assert_eq!(hello.hi, 5);
-    assert_eq!(*hello.get_unchecked(&NotThisName::Hi), 5);
+    assert_eq!(hello.r#struct, 5);
+    assert_eq!(hello.this_instead, 1);
+    assert_eq!(*hello.get_unchecked(&NotThisName::NotThis), 1);
 }
 
 // Testing with serde
