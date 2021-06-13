@@ -67,13 +67,11 @@ impl<T> HelloStruct<T> {
 The members can be accessed either directly (like `hello.world`) or by using the getter methods, like:
 
 ```rust
-fn main() {
-    let mut hello = HelloStruct::new(2, 3);
-    *hello.get_mut_unchecked(&Hello::World) = 5;
+let mut hello = HelloStruct::new(2, 3);
+*hello.get_mut_unchecked(&Hello::World) = 5;
 
-    assert_eq!(hello.world, 5);
-    assert_eq!(hello.world, *hello.get_unchecked(&Hello::World));
-}
+assert_eq!(hello.world, 5);
+assert_eq!(hello.world, *hello.get_unchecked(&Hello::World));
 ```
 
 The getters can be particularly useful with the [enum-iterator](https://docs.rs/crate/enum-iterator/) crate. For basic enums,
@@ -94,12 +92,29 @@ By default, the struct's name is `<OriginalEnumName>Struct`. You can set it to s
 ```rust
 #[derive(VariantsStruct)]
 #[struct_name = "SomeOtherName"]
-pub enum NotThisName {
+enum NotThisName {
     Variant
 }
 ```
 
 will produce a struct with name `SomeOtherName`.
+
+You can also rename the individual fields manually with the `field_name` attribute. For example, this:
+
+```rust
+#[derive(VariantsStruct)]
+enum ChangeMyVariantName {
+    #[field_name = "this_name"] NotThisName
+}
+```
+
+Will produce the following struct:
+
+```rust
+struct ChangeMyVariantName<T> {
+    this_name: T
+}
+```
 
 ### Derives
 
@@ -170,12 +185,12 @@ enum Hello {
 }
 ```
 
-These three attributes can be used in any order, or even multiple times (although that wouldn't be very readable).
+These two attributes, and the `struct_name` attribute, can be used in any order, or even multiple times (although that wouldn't be very readable).
 
-## Tuple Variants
+## Tuple and Struct Variants
 
 Tuple variants are turned into a `HashMap`, where the data stored in the tuple is the key (so the data must implement `Hash`).
-Unfortunately, variants with more than one value in them are not supported.
+Unfortunately, variants with more than one field in them are not supported.
 
 Tuple variants are omitted from the struct's `new` function. For example, this:
 
@@ -236,3 +251,7 @@ impl<T> HelloStruct<T> {
 ```
 
 Notice that the `new` function now only takes the `world` argument, and the unchecked getter methods query the hashmap and unwrap the result.
+
+The same can also be done in struct variants that have only one field.
+
+License: MIT OR Apache-2.0

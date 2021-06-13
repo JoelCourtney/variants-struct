@@ -1,6 +1,6 @@
 [package]
 name = "variants-struct"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Joel Courtney <joel.e.courtney@gmail.com>"]
 edition = "2018"
 description = "A derive macro to convert enums into a struct where the variants are members"
