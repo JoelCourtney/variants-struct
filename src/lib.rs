@@ -258,6 +258,7 @@ use syn::{Ident, parse_macro_input, ItemEnum, Fields};
 use quote::{quote, format_ident};
 use inflector::Inflector;
 use proc_macro_error::{proc_macro_error, emit_error, abort};
+use check_keyword::CheckKeyword;
 
 /// Stores basic information about variants.
 struct VariantInfo {
@@ -351,12 +352,9 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
                 ).collect();
                 if names.is_empty() {
                     let name = var.ident.to_string().to_snake_case();
-                    match syn::parse_str::<syn::Ident>(&name) {
-                        Ok(ident) => ident,
-                        Err(_) => format_ident!("r#{}", name)
-                    }
+                    format_ident!("{}", name.into_safe())
                 } else {
-                    format_ident!("{}", names.first().unwrap())
+                    format_ident!("{}", names.first().unwrap().to_safe())
                 }
             };
             VariantInfo {

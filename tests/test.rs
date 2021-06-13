@@ -83,6 +83,7 @@ fn bounds_and_derive() {
 enum NotThisName {
     Struct,
     Fn,
+    Async,
     #[field_name = "this_instead"] NotThis
 }
 
@@ -91,6 +92,7 @@ fn renaming() {
     let hello = SomeOtherName {
         r#struct: 5,
         r#fn: 3,
+        r#async: 2,
         this_instead: 1
     };
     assert_eq!(hello.r#struct, 5);
