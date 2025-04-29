@@ -277,7 +277,7 @@ use proc_macro::TokenStream;
 use syn::{Ident, parse_macro_input, ItemEnum, Fields};
 use quote::{quote, format_ident};
 use inflector::Inflector;
-use proc_macro_error::{proc_macro_error, emit_error, abort};
+use proc_macro_error2::{proc_macro_error, emit_error, abort};
 use check_keyword::CheckKeyword;
 
 /// Stores basic information about variants.
