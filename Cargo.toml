@@ -1,8 +1,8 @@
 [package]
 name = "variants-struct"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Joel Courtney <joel.e.courtney@gmail.com>"]
-edition = "2018"
+edition = "2024"
 description = "A derive macro to convert enums into a struct where the variants are members"
 readme = "README.md"
 repository = "https://github.com/JoelCourtney/variants-struct"
@@ -12,16 +12,16 @@ keywords = ["enum", "map", "struct"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-syn = { version = "1.0.73", features = ["full"] }
-proc-macro2 = "1.0.27"
-quote = "1.0.9"
-Inflector = { version="0.11.4", default-features=false }
+syn = { version = "2.0.101", features = ["full"] }
+proc-macro2 = "1.0.95"
+quote = "1.0.40"
+heck = { version="0.5.0" }
 proc-macro-error2 = "2.0.1"
-check_keyword = "0.1.1"
+check_keyword = "0.4.1"
 
 [dev-dependencies]
-serde = { version = "1.0.126", features = ["derive"] }
-serde_json = "1.0.64"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
 
 [lib]
 proc-macro = true

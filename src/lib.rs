@@ -273,23 +273,26 @@
 //!
 //! The same can also be done in struct variants that have only one field.
 
-use proc_macro::TokenStream;
-use syn::{Ident, parse_macro_input, ItemEnum, Fields};
-use quote::{quote, format_ident};
-use inflector::Inflector;
-use proc_macro_error2::{proc_macro_error, emit_error, abort};
 use check_keyword::CheckKeyword;
+use heck::ToSnekCase;
+use proc_macro::TokenStream;
+use proc_macro_error2::{emit_error, proc_macro_error};
+use quote::{format_ident, quote};
+use syn::{Fields, Ident, ItemEnum, parse_macro_input};
 
 /// Stores basic information about variants.
 struct VariantInfo {
     normal: Ident,
     snake: Ident,
-    fields: Fields
+    fields: Fields,
 }
 
 /// Derives the variants struct and impl.
 #[proc_macro_error]
-#[proc_macro_derive(VariantsStruct, attributes(struct_bounds, struct_derive, struct_name, field_name))]
+#[proc_macro_derive(
+    VariantsStruct,
+    attributes(struct_bounds, struct_derive, struct_name, field_name)
+)]
 pub fn variants_struct(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemEnum);
     let enum_ident = input.ident.clone();
@@ -300,41 +303,30 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
     let mut bounds = vec![];
     let mut derives = vec![];
     for attr in input.clone().attrs {
-        match attr.parse_meta() {
-            Ok(syn::Meta::List(syn::MetaList {path, nested, ..})) => {
-                if let Some(ident) = path.get_ident() {
-                    let attr_name = ident.to_string();
-                    if attr_name == "struct_bounds" || attr_name == "struct_derive" {
-                        let mut paths = vec![];
-                        for meta in nested {
-                            match meta {
-                                syn::NestedMeta::Meta(syn::Meta::Path(path)) => {
-                                    paths.push(path.clone());
-                                }
-                                _ => emit_error!(path, "only path arguments are accepted")
-                            }
-                        }
-                        if attr_name == "struct_bounds" {
-                            bounds.extend(paths);
-                        } else {
-                            derives.extend(paths);
-                        }
-                    }
+        if attr.path().is_ident("struct_bounds") {
+            attr.parse_nested_meta(|meta| {
+                bounds.push(meta.path);
+                Ok(())
+            })
+            .unwrap();
+        } else if attr.path().is_ident("struct_derive") {
+            attr.parse_nested_meta(|meta| {
+                derives.push(meta.path);
+                Ok(())
+            })
+            .unwrap();
+        } else if attr.path().is_ident("struct_name") {
+            if let syn::Meta::NameValue(syn::MetaNameValue { value, .. }) = attr.meta {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(lit_str),
+                    ..
+                }) = value
+                {
+                    struct_ident = format_ident!("{}", lit_str.value());
+                } else {
+                    emit_error!(value, "must be a str literal");
                 }
             }
-            Ok(syn::Meta::NameValue(syn::MetaNameValue {path, lit, ..})) => {
-                if let Some(ident) = path.get_ident() {
-                    let attr_name = ident.to_string();
-                    if attr_name == "struct_name" {
-                        if let syn::Lit::Str(lit_str) = lit {
-                            struct_ident = format_ident!("{}", lit_str.value());
-                        } else {
-                            emit_error!(lit, "must be a str literal");
-                        }
-                    }
-                }
-            }
-            _ => {}
         }
     }
 
@@ -342,48 +334,44 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
         return (quote! {
             #[derive(#(#derives),*)]
             #visibility struct #struct_ident;
-        }).into()
+        })
+        .into();
     }
 
-    let vars: Vec<_> = input.clone().variants.iter().map(
-        |var| {
-            let snake = {
-                let names: Vec<_> = var.attrs.iter().filter_map(
-                    |attr| {
-                        match attr.parse_meta() {
-                            Ok(syn::Meta::NameValue(syn::MetaNameValue {path, lit, ..})) => {
-                                if let Some(ident) = path.get_ident() {
-                                    if ident.to_string() == "field_name" {
-                                        if let syn::Lit::Str(lit_str) = lit {
-                                            Some(lit_str.value())
-                                        } else {
-                                            abort!(lit, "must be a string literal");
-                                        }
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            }
-                            _ => None
+    let vars: Vec<_> = input
+        .clone()
+        .variants
+        .iter()
+        .map(|var| {
+            let mut names = vec![];
+            for attr in &var.attrs {
+                if attr.path().is_ident("field_name") {
+                    if let syn::Meta::NameValue(syn::MetaNameValue { value, .. }) = &attr.meta {
+                        if let syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Str(lit_str),
+                            ..
+                        }) = value
+                        {
+                            names.push(lit_str.value());
+                        } else {
+                            emit_error!(value, "must be a str literal");
                         }
                     }
-                ).collect();
-                if names.is_empty() {
-                    let name = var.ident.to_string().to_snake_case();
-                    format_ident!("{}", name.into_safe())
-                } else {
-                    format_ident!("{}", names.first().unwrap().to_safe())
                 }
+            }
+
+            let snake = if names.is_empty() {
+                format_ident!("{}", var.ident.to_string().to_snek_case().into_safe())
+            } else {
+                format_ident!("{}", names.first().unwrap().into_safe())
             };
             VariantInfo {
                 normal: var.ident.clone(),
                 snake,
-                fields: var.fields.clone()
+                fields: var.fields.clone(),
             }
-        }
-    ).collect();
+        })
+        .collect();
 
     // generate the fields and impl code
     let mut field_idents = vec![];
@@ -395,7 +383,12 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
     let mut get_muts = vec![];
     let mut new_args = vec![];
     let mut new_fields = vec![];
-    for VariantInfo { normal, snake, fields } in &vars {
+    for VariantInfo {
+        normal,
+        snake,
+        fields,
+    } in &vars
+    {
         field_idents.push(snake.clone());
         field_names.push(snake.to_string());
         match fields {
@@ -500,5 +493,6 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
                 }
             }
         }
-    }).into()
+    })
+    .into()
 }
