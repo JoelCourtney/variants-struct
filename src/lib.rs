@@ -330,7 +330,7 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
         }
     }
 
-    if input.variants.len() == 0 {
+    if input.variants.is_empty() {
         return (quote! {
             #[derive(#(#derives),*)]
             #visibility struct #struct_ident;
