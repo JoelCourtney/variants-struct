@@ -5,7 +5,7 @@ use variants_struct::VariantsStruct;
 #[struct_bounds(Clone)]
 pub enum Hello {
     World,
-    There
+    There,
 }
 
 #[derive(VariantsStruct, Clone, PartialEq, Debug)]
@@ -13,19 +13,14 @@ enum HasTuples {
     Zero,
     One(&'static str),
     OtherOne(i32),
-    StructVariant {
-        my_field: i32
-    }
+    StructVariant { my_field: i32 },
 }
 
 pub struct NotClonable;
 
 #[test]
 fn store() {
-    let hello = HelloStruct {
-        world: 5,
-        there: 3
-    };
+    let hello = HelloStruct { world: 5, there: 3 };
     assert_eq!(hello.world, 5);
     assert_eq!(*hello.get_unchecked(&Hello::World), 5);
 }
@@ -51,16 +46,16 @@ fn hashmaps() {
     assert_eq!(*tuple_boi.get_unchecked(&HasTuples::OtherOne(7)), 70);
 
     tuple_boi.struct_variant.insert(8, 80);
-    assert_eq!(*tuple_boi.get_unchecked(&HasTuples::StructVariant {my_field: 8}), 80);
+    assert_eq!(
+        *tuple_boi.get_unchecked(&HasTuples::StructVariant { my_field: 8 }),
+        80
+    );
 }
 
 #[test]
 fn default() {
     let hello: HelloStruct<u32> = Default::default();
-    let manual = HelloStruct {
-        world: 0,
-        there: 0
-    };
+    let manual = HelloStruct { world: 0, there: 0 };
     assert_eq!(hello.world, manual.world);
     assert_eq!(hello.there, manual.there);
 }
@@ -84,7 +79,8 @@ enum NotThisName {
     Struct,
     Fn,
     Async,
-    #[field_name = "this_instead"] NotThis
+    #[field_name = "this_instead"]
+    NotThis,
 }
 
 #[test]
@@ -93,7 +89,7 @@ fn renaming() {
         r#struct: 5,
         r#fn: 3,
         r#async: 2,
-        this_instead: 1
+        this_instead: 1,
     };
     assert_eq!(hello.r#struct, 5);
     assert_eq!(hello.this_instead, 1);
@@ -108,7 +104,7 @@ use serde::{Deserialize, Serialize};
 #[struct_derive(Serialize, Deserialize, PartialEq, Debug)]
 pub enum Asdf {
     Zxcv,
-    Qwer
+    Qwer,
 }
 
 #[test]
