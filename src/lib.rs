@@ -162,7 +162,7 @@
 //! ```
 //! # use variants_struct::VariantsStruct;
 //! #[derive(VariantsStruct)]
-//! #[struct_bounds(Clone)]
+//! #[struct_bounds(Copy + Clone)]
 //! enum Hello {
 //!     World,
 //!     There
@@ -172,13 +172,34 @@
 //! would produce the following code:
 //!
 //! ```
-//! struct HelloStruct<T: Clone> {
+//! struct HelloStruct<T: Copy + Clone> {
 //!     # go_away: T,
 //!     // fields omitted
 //! }
 //!
-//! impl<T: Clone> HelloStruct<T> {
+//! impl<T: Copy + Clone> HelloStruct<T> {
 //!     // methods omitted
+//! }
+//! ```
+//!
+//! ## Arbitrary attributes
+//!
+//! To apply other arbitrary attributes to the struct, use `#[struct_attr(...)]`. For example, if you apply
+//! `serde::Serialize` to the struct, and your bounds already include a trait that requires `T: Serialize`,
+//! serde will give an error. Serde documentation tells you to add `#[serde(bound(serialize = ...))]`,
+//! and you can pass that along with `struct_attr`.
+//!
+//! ```
+//! # use variants_struct::VariantsStruct;
+//! # use serde::Serialize;
+//! trait MyTrait: Serialize {}
+//!
+//! #[derive(VariantsStruct)]
+//! #[struct_derive(Serialize)]
+//! #[struct_bounds(MyTrait)]
+//! #[struct_attr(serde(bound(serialize = "T: MyTrait")))]
+//! enum MyEnum {
+//!     MyVariant
 //! }
 //! ```
 //!
@@ -194,8 +215,8 @@
 //! #[derive(VariantsStruct)]
 //! #[struct_derive(Clone)]
 //! #[struct_bounds(Clone)]
-//! enum Hello {
-//!     // variants omitted
+//! enum MyEnum {
+//!     MyVariant
 //! }
 //! ```
 //!
@@ -291,7 +312,7 @@ struct VariantInfo {
 #[proc_macro_error]
 #[proc_macro_derive(
     VariantsStruct,
-    attributes(struct_bounds, struct_derive, struct_name, field_name)
+    attributes(struct_bounds, struct_derive, struct_name, field_name, struct_attr)
 )]
 pub fn variants_struct(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemEnum);
@@ -300,15 +321,19 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
     let visibility = input.vis.clone();
 
     // read the `struct_bounds`, `struct_derive`, and `struct_name` attributes. (ignore any others)
-    let mut bounds = vec![];
+    let mut bounds = quote! {};
     let mut derives = vec![];
+    let mut attrs = vec![];
     for attr in input.clone().attrs {
         if attr.path().is_ident("struct_bounds") {
-            attr.parse_nested_meta(|meta| {
-                bounds.push(meta.path);
-                Ok(())
-            })
-            .unwrap();
+            let syn::Meta::List(l) = attr.meta else {
+                emit_error!(
+                    attr,
+                    "struct_bounds must be of the form #[struct_bounds(Bound)]"
+                );
+                return quote! {}.into();
+            };
+            bounds = l.tokens;
         } else if attr.path().is_ident("struct_derive") {
             attr.parse_nested_meta(|meta| {
                 derives.push(meta.path);
@@ -327,6 +352,12 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
                     emit_error!(value, "must be a str literal");
                 }
             }
+        } else if attr.path().is_ident("struct_attr") {
+            let syn::Meta::List(l) = attr.meta else {
+                emit_error!(attr, "struct_attr must be of the form #[struct_attr(attr)]");
+                return quote! {}.into();
+            };
+            attrs.push(l.tokens);
         }
     }
 
@@ -458,11 +489,12 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
     // combine it all together
     (quote! {
         #[derive(#(#derives),*)]
-        #visibility struct #struct_ident<T: #(#bounds)+*> {
+        #(#[#attrs])*
+        #visibility struct #struct_ident<T: #bounds> {
             #(#struct_fields),*
         }
 
-        impl<T: #(#bounds)+*> #struct_ident<T> {
+        impl<T: #bounds> #struct_ident<T> {
             pub fn new(#(#new_args),*) -> #struct_ident<T> {
                 #struct_ident {
                     #(#new_fields),*
@@ -491,6 +523,32 @@ pub fn variants_struct(input: TokenStream) -> TokenStream {
                 match var {
                     #(#get_muts),*
                 }
+            }
+        }
+
+        impl<T: #bounds> std::ops::Index<#enum_ident> for #struct_ident<T> {
+            type Output = T;
+            fn index(&self, var: #enum_ident) -> &T {
+                self.get_unchecked(&var)
+            }
+        }
+
+        impl<T: #bounds> std::ops::IndexMut<#enum_ident> for #struct_ident<T> {
+            fn index_mut(&mut self, var: #enum_ident) -> &mut T {
+                self.get_mut_unchecked(&var)
+            }
+        }
+
+        impl<T: #bounds> std::ops::Index<&#enum_ident> for #struct_ident<T> {
+            type Output = T;
+            fn index(&self, var: &#enum_ident) -> &T {
+                self.get_unchecked(var)
+            }
+        }
+
+        impl<T: #bounds> std::ops::IndexMut<&#enum_ident> for #struct_ident<T> {
+            fn index_mut(&mut self, var: &#enum_ident) -> &mut T {
+                self.get_mut_unchecked(var)
             }
         }
     })

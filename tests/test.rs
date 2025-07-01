@@ -94,6 +94,7 @@ fn renaming() {
     assert_eq!(hello.r#struct, 5);
     assert_eq!(hello.this_instead, 1);
     assert_eq!(*hello.get_unchecked(&NotThisName::NotThis), 1);
+    assert_eq!(hello[NotThisName::NotThis], 1);
 }
 
 // Testing with serde
@@ -116,4 +117,21 @@ fn test_serde() {
 
     let end: AsdfStruct<i32> = serde_json::from_str(&string).unwrap();
     assert_eq!(start, end);
+}
+
+#[derive(VariantsStruct)]
+#[struct_derive(Serialize, Deserialize, PartialEq, Debug)]
+#[struct_bounds(Clone + for<'a> Deserialize<'a>)]
+#[struct_attr(serde(bound(deserialize = "T: for<'a> Deserialize<'a>")))]
+pub enum Hrtb {
+    A,
+    B,
+}
+
+#[test]
+fn test_index_mut() {
+    let mut s = HrtbStruct::new(2, 3);
+    s[Hrtb::B] = 5;
+    assert_eq!(s[Hrtb::B], 5);
+    assert_eq!(s.get(&Hrtb::B), Some(&5));
 }

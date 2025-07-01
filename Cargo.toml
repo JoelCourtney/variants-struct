@@ -1,6 +1,6 @@
 [package]
 name = "variants-struct"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Joel Courtney <joel.e.courtney@gmail.com>"]
 edition = "2024"
 description = "A derive macro to convert enums into a struct where the variants are members"
@@ -13,7 +13,6 @@ keywords = ["enum", "map", "struct"]
 
 [dependencies]
 syn = { version = "2.0.101", features = ["full"] }
-proc-macro2 = "1.0.95"
 quote = "1.0.40"
 heck = { version="0.5.0" }
 proc-macro-error2 = "2.0.1"
